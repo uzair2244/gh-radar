@@ -1,0 +1,264 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: #04070e;
+  --color-abyss: #070b16;
+  --color-panel: rgba(255, 255, 255, 0.035);
+  --color-edge: rgba(255, 255, 255, 0.09);
+  --color-edge-bright: rgba(255, 255, 255, 0.16);
+  --color-ink: #e6edf7;
+  --color-ink-dim: #8fa0b8;
+  --color-ink-faint: #5b6b83;
+  --color-signal: #22d3ee;
+  --color-signal-deep: #0e7490;
+  --color-warn: #fbbf24;
+  --color-violet: #a78bfa;
+  --color-danger: #fb7185;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-edge);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-void);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-signal) 35%, transparent);
+    color: #fff;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-signal) 45%, transparent);
+    background-clip: content-box;
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-signal) 70%, transparent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* Ambient grid, the kind you'd see on a radar scope or a tactical display. */
+  .grid-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  .glow-cyan {
+    background: radial-gradient(
+      42rem 24rem at 12% -8%,
+      color-mix(in oklab, var(--color-signal) 16%, transparent),
+      transparent 70%
+    );
+  }
+
+  .glow-violet {
+    background: radial-gradient(
+      38rem 22rem at 88% -12%,
+      color-mix(in oklab, var(--color-violet) 14%, transparent),
+      transparent 70%
+    );
+  }
+
+  .panel {
+    background: var(--color-panel);
+    border: 1px solid var(--color-edge);
+    backdrop-filter: blur(14px);
+    border-radius: 14px;
+  }
+
+  .panel-hover {
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      transform 160ms ease,
+      box-shadow 220ms ease;
+  }
+  .panel-hover:hover {
+    border-color: color-mix(in oklab, var(--color-signal) 38%, transparent);
+    background: color-mix(in oklab, var(--color-signal) 5%, var(--color-panel));
+    transform: translateY(-2px);
+    box-shadow:
+      0 12px 34px -18px color-mix(in oklab, var(--color-signal) 55%, transparent),
+      0 0 0 1px color-mix(in oklab, var(--color-signal) 14%, transparent);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-edge);
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--color-ink-dim);
+    white-space: nowrap;
+  }
+
+  .field {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--color-edge);
+    border-radius: 9px;
+    padding: 0.5rem 0.7rem;
+    color: var(--color-ink);
+    font-size: 0.85rem;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+  .field::placeholder {
+    color: var(--color-ink-faint);
+  }
+  .field:focus {
+    outline: none;
+    border-color: color-mix(in oklab, var(--color-signal) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-signal) 14%, transparent);
+  }
+
+  .facet-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.32rem 0.45rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--color-ink-dim);
+    cursor: pointer;
+    transition:
+      background-color 130ms ease,
+      color 130ms ease;
+  }
+  .facet-row:hover {
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--color-ink);
+  }
+  .facet-row[data-active="true"] {
+    background: color-mix(in oklab, var(--color-signal) 15%, transparent);
+    color: var(--color-ink);
+  }
+
+  .facet-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--color-ink-faint);
+  }
+
+  /* Slow sweep, the one overt nod to the radar motif. */
+  .radar-sweep {
+    animation: sweep 9s linear infinite;
+  }
+
+  .pulse-dot {
+    animation: pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  .scan-line {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-signal) 55%, transparent),
+      transparent
+    );
+    animation: scan 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-signal) 60%, transparent);
+  }
+  50% {
+    opacity: 0.65;
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+@keyframes scan {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: rise 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-sweep,
+  .pulse-dot,
+  .scan-line,
+  .rise {
+    animation: none;
+  }
+  .panel-hover:hover {
+    transform: none;
+  }
+}
