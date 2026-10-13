@@ -4,7 +4,11 @@ import {
   languageColor,
   relativeTime,
 } from "@/lib/format";
+import { TIER_LABEL, tierFor } from "@/lib/scoring";
 import type { RepoDoc } from "@/lib/types";
+
+/** Upper bound used to normalise the meter, just above the current max. */
+const SCORE_CEILING = 24;
 
 function Stars({ value }: { value: number }) {
   return (
@@ -28,6 +32,9 @@ function Stars({ value }: { value: number }) {
 
 export function RepoCard({ repo }: { repo: RepoDoc }) {
   const license = repo.license?.spdx_id ?? "NOASSERTION";
+  const tier = tierFor(repo.potentialScore);
+  const score = repo.potentialScore ?? 0;
+  const meter = Math.max(0, Math.min(100, (score / SCORE_CEILING) * 100));
 
   return (
     <article className="panel panel-hover rise flex flex-col gap-3 p-4">
@@ -50,12 +57,17 @@ export function RepoCard({ repo }: { repo: RepoDoc }) {
           </p>
         </div>
 
-        <span
-          className="shrink-0 rounded-md border border-edge px-1.5 py-0.5 font-mono text-[0.62rem] tracking-wide text-ink-dim"
-          title={repo.license?.name ?? license}
-        >
-          {license}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {tier !== "baseline" && (
+            <span className={`tier-badge tier-${tier}`}>{TIER_LABEL[tier]}</span>
+          )}
+          <span
+            className="rounded-md border border-edge px-1.5 py-0.5 font-mono text-[0.62rem] tracking-wide text-ink-dim"
+            title={repo.license?.name ?? license}
+          >
+            {license}
+          </span>
+        </div>
       </div>
 
       <p className="line-clamp-3 min-h-[2.6rem] text-[0.82rem] leading-relaxed text-ink-dim">
@@ -75,24 +87,52 @@ export function RepoCard({ repo }: { repo: RepoDoc }) {
         </div>
       )}
 
-      <div className="mt-auto flex items-center gap-3 border-t border-edge pt-3 font-mono text-[0.72rem] text-ink-faint">
-        <Stars value={repo.stars} />
-        <span title={`${repo.forks} forks`}>
-          ⑂ {compactNumber(repo.forks)}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="h-2 w-2 rounded-full ring-1 ring-white/10"
-            style={{ background: languageColor(repo.language) }}
-            aria-hidden="true"
-          />
-          {repo.language ?? "Unknown"}
-        </span>
-        {repo.is_archived && (
-          <span className="ml-auto rounded border border-warn/30 px-1.5 py-0.5 text-[0.62rem] text-warn">
-            archived
+      <div className="mt-auto space-y-2.5 border-t border-edge pt-3">
+        <div className="flex items-center gap-3 font-mono text-[0.72rem] text-ink-faint">
+          <Stars value={repo.stars} />
+          <span title={`${repo.forks} forks`}>
+            ⑂ {compactNumber(repo.forks)}
           </span>
-        )}
+          <span title={`${repo.open_issues} open issues`}>
+            ◔ {compactNumber(repo.open_issues)}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="h-2 w-2 rounded-full ring-1 ring-white/10"
+              style={{ background: languageColor(repo.language) }}
+              aria-hidden="true"
+            />
+            {repo.language ?? "Unknown"}
+          </span>
+          {repo.is_fork && (
+            <span
+              className="rounded border border-edge px-1.5 py-0.5 text-[0.62rem]"
+              title="This is a fork, not original work"
+            >
+              fork
+            </span>
+          )}
+          {repo.is_archived && (
+            <span
+              className="rounded border border-warn/30 px-1.5 py-0.5 text-[0.62rem] text-warn"
+              title="No longer maintained upstream"
+            >
+              archived
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-ink-faint">
+            signal
+          </span>
+          <span className="score-meter" role="img" aria-label={`Potential score ${score.toFixed(1)} of ${SCORE_CEILING}`}>
+            <span style={{ width: `${meter}%` }} />
+          </span>
+          <span className="font-mono text-[0.62rem] tabular-nums text-ink-faint">
+            {score.toFixed(1)}
+          </span>
+        </div>
       </div>
     </article>
   );

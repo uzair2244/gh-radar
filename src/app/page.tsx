@@ -2,13 +2,15 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { FilterPanel } from "@/components/FilterPanel";
 import { RepoCard } from "@/components/RepoCard";
-import { relativeTime } from "@/lib/format";
+import { About, SiteFooter } from "@/components/SiteFooter";
+import { compactNumber, relativeTime } from "@/lib/format";
 import { connectionInfo } from "@/lib/mongodb";
 import {
   countAllRepos,
   getFacets,
   getRepos,
   getRunInfo,
+  getStats,
   parseFilters,
 } from "@/lib/queries";
 import type { Filters } from "@/lib/types";
@@ -93,11 +95,12 @@ export default async function Page({
   const params = await searchParams;
   const filters = parseFilters(params);
 
-  const [result, facets, run, totalAll] = await Promise.all([
+  const [result, facets, run, totalAll, stats] = await Promise.all([
     getRepos(filters),
     getFacets(filters),
     getRunInfo(),
     countAllRepos(),
+    getStats(),
   ]);
 
   const conn = connectionInfo();
@@ -123,6 +126,14 @@ export default async function Page({
                 </p>
               </div>
             </div>
+
+            <p className="mt-4 max-w-2xl text-[0.88rem] leading-relaxed text-ink-dim">
+              Most tools worth adopting surface in the noise before anyone
+              writes about them. GH Radar sweeps newly created repositories
+              every day and keeps the ones that look like real developer
+              tooling, so you can filter the flood down to the handful
+              actually worth a look.
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 font-mono text-[0.7rem]">
@@ -157,19 +168,44 @@ export default async function Page({
         )}
       </header>
 
+      <div className="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <div className="stat-tile">
+          <b>{compactNumber(stats.total)}</b>
+          <span>repos indexed</span>
+        </div>
+        <div className="stat-tile">
+          <b className="text-warn">{compactNumber(stats.breakout)}</b>
+          <span>breakout</span>
+        </div>
+        <div className="stat-tile">
+          <b className="text-signal">{compactNumber(stats.rising)}</b>
+          <span>rising</span>
+        </div>
+        <div className="stat-tile">
+          <b>{compactNumber(stats.gainingTraction)}</b>
+          <span>10+ stars</span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="panel h-fit p-5 lg:sticky lg:top-6">
-          <Suspense fallback={<div className="h-96 animate-pulse" />}>
-            <FilterPanel
-              facets={facets}
-              filters={filters}
-              total={result.total}
-              totalAll={totalAll}
-            />
-          </Suspense>
-        </aside>
+        <Suspense fallback={<div className="panel hidden h-96 animate-pulse lg:block" />}>
+          <FilterPanel
+            facets={facets}
+            filters={filters}
+            total={result.total}
+            totalAll={totalAll}
+            dateFilterInert={stats.dateFilterInert}
+          />
+        </Suspense>
 
         <section aria-label="Repositories">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="section-label">Repository feed</h2>
+            <p className="font-mono text-[0.68rem] text-ink-faint">
+              {result.total.toLocaleString()} matching
+            </p>
+          </div>
+
           {result.docs.length === 0 ? (
             <div className="panel flex flex-col items-center gap-3 px-6 py-24 text-center">
               <span className="font-mono text-2xl text-ink-faint" aria-hidden="true">
@@ -193,15 +229,36 @@ export default async function Page({
             </>
           )}
 
-          <footer className="mt-12 border-t border-edge pt-5 text-center font-mono text-[0.68rem] text-ink-faint">
-            <p>
-              {totalAll.toLocaleString()} repos indexed · reading{" "}
-              <span className="text-ink-dim">{conn.db}</span>{" "}
-              <span title={conn.uri}>· unauthenticated daily collection</span>
+          <section
+            aria-labelledby="how-heading"
+            className="panel mt-12 p-5 sm:p-6"
+          >
+            <h2 id="how-heading" className="section-label mb-3">
+              How the signal is scored
+            </h2>
+            <p className="max-w-3xl text-[0.82rem] leading-relaxed text-ink-dim">
+              Every repo carries a <span className="text-signal">potential</span>{" "}
+              score combining log-scaled stars and forks, recent commit activity,
+              project health, and how deeply it matched the developer-tool
+              topics the collector watches. Stars and forks are log-scaled so a
+              single outlier cannot flatten everything below it, and forks carry
+              their own weight, so a young project people are already building
+              on can outrank a more starred one nobody has adopted.
             </p>
-          </footer>
+            <p className="mt-2 max-w-3xl text-[0.78rem] leading-relaxed text-ink-faint">
+              Age is deliberately excluded. Every repo in the collection is
+              currently the same age, so a growth rate would carry no information
+              and would just rank by raw stars. The weighting is worth revisiting
+              once the collector has covered enough days for velocity to mean
+              something.
+            </p>
+          </section>
+
+          <About />
         </section>
       </div>
+
+      <SiteFooter totalAll={totalAll} dbName={conn.db} />
     </main>
   );
 }

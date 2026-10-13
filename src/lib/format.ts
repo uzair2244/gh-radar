@@ -51,8 +51,8 @@ export function relativeTime(iso?: string): string {
 }
 
 export function dateOnly(iso?: string): string {
-  if (!iso) return "—";
+  if (!iso) return "unknown";
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "unknown";
   return date.toISOString().slice(0, 10);
 }

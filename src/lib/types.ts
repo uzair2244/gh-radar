@@ -30,6 +30,11 @@ export type RepoDoc = {
   first_seen_at: string;
   last_seen_at: string;
   last_run_date: string;
+  /**
+   * Computed at query time by `SCORE_STAGE`, never stored. Present on every
+   * document the repository layer returns.
+   */
+  potentialScore?: number;
 };
 
 export type RepoResult = {
@@ -37,6 +42,22 @@ export type RepoResult = {
   total: number;
   page: number;
   pages: number;
+};
+
+/** Headline figures rendered as the insight band above the results grid. */
+export type RadarStats = {
+  total: number;
+  gainingTraction: number;
+  breakout: number;
+  rising: number;
+  pushedToday: number;
+  daysCovered: number;
+  /**
+   * True when every repo shares one creation date, which makes any
+   * narrower date filter return nothing. Drives the hint next to the
+   * date inputs rather than silently emptying the grid.
+   */
+  dateFilterInert: boolean;
 };
 
 export type FacetValue = { value: string; label: string; count: number };
@@ -68,7 +89,7 @@ export type Filters = {
   minStars: number;
   dateFrom: string;
   dateTo: string;
-  sort: "stars" | "newest" | "forks" | "updated";
+  sort: "stars" | "newest" | "forks" | "updated" | "potential";
   page: number;
   limit: number;
 };

@@ -15,7 +15,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GH Radar — open-source tool discovery",
+  title: "GH Radar, open-source tool discovery",
   description:
     "Newly created open-source GitHub repositories that ship developer tools, indexed daily.",
 };

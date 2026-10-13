@@ -1,15 +1,17 @@
 import { Filter, Sort } from "mongodb";
 import { getDb } from "./mongodb";
+import { SCORE_STAGE, TIER_MINS } from "./scoring";
 import {
   FacetValue,
   Facets,
   Filters,
+  RadarStats,
   RepoDoc,
   RepoResult,
   RunInfo,
 } from "./types";
 
-const SORT_KEYS = ["stars", "newest", "forks", "updated"] as const;
+const SORT_KEYS = ["stars", "newest", "forks", "updated", "potential"] as const;
 type SortKey = (typeof SORT_KEYS)[number];
 
 /** Dimensions that a facet can be computed independently of. */
@@ -139,6 +141,8 @@ function sortSpecFor(sort: Filters["sort"]): Sort {
       return { forks: -1, repo_id: 1 };
     case "updated":
       return { updated_at: -1, repo_id: 1 };
+    case "potential":
+      return { potentialScore: -1, repo_id: 1 };
     case "stars":
     default:
       return { stars: -1, repo_id: 1 };
@@ -151,15 +155,27 @@ export async function getRepos(filters: Filters): Promise<RepoResult> {
   const match = buildMatch(filters);
   const skip = (filters.page - 1) * filters.limit;
 
-  // repo_id is a stable tiebreaker, so paging never repeats or drops a row
-  // when two repos share a star count.
+  // Every read runs the scoring stage, so each card can render its own signal
+  // badge rather than only the rows under sort=potential. That costs an
+  // in-memory sort (a computed field cannot use an index), which is free at the
+  // current collection size, but past roughly 100k docs the score should be
+  // materialised by the collector and indexed instead.
+  //
+  // repo_id stays the tiebreaker on every sort, so paging never repeats or
+  // drops a row when two repos score identically.
   const [docs, total] = await Promise.all([
     repos
-      .find(match)
-      .sort(sortSpecFor(filters.sort))
-      .skip(skip)
-      .limit(filters.limit)
-      .toArray(),
+      .aggregate(
+        [
+          { $match: match },
+          SCORE_STAGE,
+          { $sort: sortSpecFor(filters.sort) },
+          { $skip: skip },
+          { $limit: filters.limit },
+        ],
+        { allowDiskUse: true },
+      )
+      .toArray() as Promise<RepoDoc[]>,
     repos.countDocuments(match),
   ]);
 
@@ -244,6 +260,94 @@ export async function getFacets(filters: Filters): Promise<Facets> {
 export async function countAllRepos(): Promise<number> {
   const db = await getDb();
   return db.collection<RepoDoc>("repos").estimatedDocumentCount();
+}
+
+/**
+ * Headline figures for the insight band. Counted across the whole collection
+ * rather than the active filter set: these describe what the radar has seen,
+ * not what the current query happens to match.
+ */
+export async function getStats(): Promise<RadarStats> {
+  const db = await getDb();
+  const repos = db.collection<RepoDoc>("repos");
+
+  const [row] = await repos
+    .aggregate([
+      SCORE_STAGE,
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          gainingTraction: { $sum: { $cond: [{ $gte: ["$stars", 10] }, 1, 0] } },
+          breakout: {
+            $sum: { $cond: [{ $gte: ["$potentialScore", TIER_MINS.breakout] }, 1, 0] },
+          },
+          rising: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ["$potentialScore", TIER_MINS.rising] },
+                    { $lt: ["$potentialScore", TIER_MINS.breakout] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          pushedToday: {
+            $sum: {
+              $cond: [
+                {
+                  $lte: [
+                    {
+                      $dateDiff: {
+                        startDate: {
+                          $ifNull: [{ $toDate: "$pushed_at" }, new Date(0)],
+                        },
+                        endDate: "$$NOW",
+                        unit: "day",
+                      },
+                    },
+                    1,
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          days: { $addToSet: "$last_run_date" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          total: 1,
+          gainingTraction: 1,
+          breakout: 1,
+          rising: 1,
+          pushedToday: 1,
+          daysCovered: { $size: "$days" },
+        },
+      },
+    ])
+    .toArray();
+
+  const daysCovered = row?.daysCovered ?? 0;
+
+  return {
+    total: row?.total ?? 0,
+    gainingTraction: row?.gainingTraction ?? 0,
+    breakout: row?.breakout ?? 0,
+    rising: row?.rising ?? 0,
+    pushedToday: row?.pushedToday ?? 0,
+    daysCovered,
+    // Every repo sharing one run date means any narrower window is empty, so
+    // the UI can say so instead of showing a blank grid.
+    dateFilterInert: daysCovered <= 1,
+  };
 }
 
 export async function getRunInfo(): Promise<RunInfo | null> {
